@@ -1,0 +1,66 @@
+---
+name: Build opencode2-desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [build-node-desktop]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: opencode-desktop (linux-x64)
+    runs-on: ubuntu-latest
+    env:
+      OPENCODE_CHANNEL: dev
+      OPENCODE_CLI_DIST: ${{ github.workspace }}/packages/cli/dist
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Compute version
+        run: echo "OPENCODE_VERSION=0.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: 1.4.2
+
+      - name: Build node binary
+        working-directory: packages/cli
+        run: bun run build:node --target=linux-x64 --outdir=dist
+
+      - name: Prepare
+        working-directory: packages/desktop
+        run: bun ./scripts/prepare.ts
+
+      - name: Copy built CLI into resources
+        run: |
+          cp packages/cli/dist/cli-node-linux-x64/bin/opencode2-node packages/desktop/resources/opencode-cli
+          chmod +x packages/desktop/resources/opencode-cli
+
+      - name: Build
+        working-directory: packages/desktop
+        run: bun run build
+
+      - name: Package
+        working-directory: packages/desktop
+        run: npx electron-builder --linux AppImage --publish never --config electron-builder.config.ts
+
+      - name: Upload TUI artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: opencode-node-cli-linux-x64
+          path: packages/cli/dist/cli-node-linux-x64
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: opencode-desktop-linux-x64
+          path: packages/desktop/dist/*.AppImage
+          if-no-files-found: error
+          retention-days: 90
