@@ -19,54 +19,19 @@ export function resolveChannel(): Channel {
 
 export const CLI_BINARIES: Array<{ target: string; package: string; os: string; cpu: string }> = [
   {
-    target: "aarch64-apple-darwin",
-    package: "@opencode/cli-darwin-arm64",
-    os: "darwin",
-    cpu: "arm64",
-  },
-  {
-    target: "x86_64-apple-darwin",
-    package: "@opencode/cli-darwin-x64-baseline",
-    os: "darwin",
-    cpu: "x64",
-  },
-  {
-    target: "aarch64-pc-windows-msvc",
-    package: "@opencode/cli-windows-arm64",
-    os: "win32",
-    cpu: "arm64",
-  },
-  {
-    target: "x86_64-pc-windows-msvc",
-    package: "@opencode/cli-windows-x64-baseline",
-    os: "win32",
-    cpu: "x64",
-  },
-  {
-    target: "x86_64-unknown-linux-gnu",
-    package: "@opencode/cli-linux-x64-baseline",
+    target: "linux-x64",
+    package: "@opencode/cli-node-linux-x64",
     os: "linux",
     cpu: "x64",
-  },
-  {
-    target: "aarch64-unknown-linux-gnu",
-    package: "@opencode/cli-linux-arm64",
-    os: "linux",
-    cpu: "arm64",
   },
 ]
 
 export const CLI_TARGET = Bun.env.OPENCODE_CLI_TARGET
 
 function nativeTarget() {
-  const { platform, arch } = process
-
-  if (platform === "darwin") return arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin"
-
-  if (platform === "win32") return arch === "arm64" ? "aarch64-pc-windows-msvc" : "x86_64-pc-windows-msvc"
-
-  if (platform === "linux") return arch === "arm64" ? "aarch64-unknown-linux-gnu" : "x86_64-unknown-linux-gnu"
-  throw new Error(`Unsupported platform: ${platform}/${arch}`)
+  if (process.platform !== "linux") throw new Error(`Unsupported desktop CLI platform: ${process.platform}`)
+  if (process.arch !== "x64") throw new Error(`Unsupported desktop CLI architecture: ${process.arch}`)
+  return "linux-x64"
 }
 
 export function getCurrentCli(target = CLI_TARGET ?? nativeTarget()) {
@@ -97,31 +62,16 @@ export async function copyBuiltCliToResources(root: string, dest = windowsify("r
   await copyCliToResources(join(root, directory), dest)
 }
 
-// The package directory is an npm package: its package.json version is the string the executable
-// prints for --version. Writing it next to the executable spares the desktop a ~400 ms spawn of the
-// 200 MB binary on first launch.
 async function copyCliToResources(pkg: string, dest: string) {
-  const cli = getCurrentCli()
-  await copyFile(join(pkg, "bin", cli.os === "win32" ? "opencode.exe" : "opencode"), dest)
-  await prepareCli(dest)
+  await copyFile(join(pkg, "bin", "opencode2-node"), dest)
+  await chmod(dest, 0o755)
   const manifest = (await Bun.file(join(pkg, "package.json")).json()) as { version?: string }
-
   if (!manifest.version) throw new Error(`Bundled CLI package has no version: ${pkg}`)
   await Bun.write(versionFile(dest), manifest.version)
 }
 
 export function versionFile(cli: string) {
   return join(dirname(cli), "opencode-cli.version")
-}
-
-async function prepareCli(dest: string) {
-  if (process.platform !== "win32") await chmod(dest, 0o755)
-
-  if (process.platform === "win32" && process.env.GITHUB_ACTIONS === "true") {
-    await $`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File ../../script/sign-windows.ps1 ${dest}`
-  }
-
-  if (process.platform === "darwin") await $`codesign --force --sign - ${dest}`
 }
 
 export function windowsify(path: string) {
