@@ -1,6 +1,8 @@
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Predicate } from "effect"
+import { makeEventListener } from "@solid-primitives/event-listener"
+import { useDialog } from "@opencode/ui/context/dialog"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
 import type { SessionUserActions } from "@opencode/session-ui/actions"
 import { Button } from "@opencode/ui/button"
@@ -23,7 +25,8 @@ import { createTimelineVirtualizer } from "./virtualizer"
 import { containsDirectory } from "@opencode/util/path"
 import { isWorkspaceDirectory } from "@/workspaces/paths"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
-import { useCommand } from "@/shell/commands/command"
+import { isEditableTarget, useCommand } from "@/shell/commands/command"
+import { useSettings } from "@/settings/model"
 import { SessionAncestorTrail, SessionProjectMenu, SessionTitleHeader } from "../session-identity-header"
 import { SessionHeaderSpacer } from "@/session/header/session-header"
 import { SessionRunningMenu } from "@/session/header/session-running-menu"
@@ -126,6 +129,8 @@ function MessageTimelineView(
   const server = useServer()
   const data = server.ctx.data
   const sdk = useWorkspaceLocation()
+  const dialog = useDialog()
+  const command = useCommand()
   const sessionID = props.data.sessionID
   const sessionStatus = props.data.status
   const titleLabel = props.data.titleLabel
@@ -283,6 +288,20 @@ function MessageTimelineView(
   createEffect(() => {
     if (props.active !== false) return
     setTitle({ draft: "", editing: false, menuOpen: false, pendingRename: false })
+  })
+
+  createEffect(() => {
+    if (props.active === false || !parentID()) return
+    makeEventListener(document, "keydown", (event) => {
+      if (event.key !== "Escape" || event.repeat || event.isComposing || event.defaultPrevented) return
+      if (props.active === false || !parentID()) return
+      if (command.suspended() || dialog.active) return
+      if (title.menuOpen || summaryOpen() || title.editing || title.pendingRename) return
+      const target = event.target
+      if (isEditableTarget(target)) return
+      if (target instanceof Element && target.closest('[data-component="terminal"]')) return
+      props.action.navigateParent()
+    })
   })
 
   const rowRenderer = createSessionTimelineRowRenderer({
