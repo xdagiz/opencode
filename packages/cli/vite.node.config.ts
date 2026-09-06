@@ -153,7 +153,7 @@ import { chmodSync as __ocChmod, existsSync as __ocExists, lstatSync as __ocLsta
 import { tmpdir as __ocTmpdir } from "node:os"
 import __ocPath from "node:path"
 import { getAssetKeys as __ocAssetKeys, getRawAsset as __ocRawAsset, isSea as __ocIsSea } from "node:sea"
-import { fileURLToPath as __ocFileURLToPath } from "node:url"
+import { fileURLToPath as __ocFileURLToPath, pathToFileURL as __ocPathToFileURL } from "node:url"
 const __filename = import.meta.filename
 const __dirname = import.meta.dirname
 const require = __cjs_mod__.createRequire(import.meta.url)
@@ -185,6 +185,19 @@ __cjs_mod__.registerHooks({
       : __ocNextLoad(__ocUrl, __ocContext)
   },
 })
+globalThis.__ocEsmResolve = (__ocSpecifier, __ocDirectory) => {
+  const __ocParent = __ocPathToFileURL(__ocPath.join(__ocDirectory, "package.json")).href
+  const __ocHook = __cjs_mod__.registerHooks({
+    resolve(__ocTarget, __ocContext, __ocNext) {
+      return __ocNext(__ocTarget, { ...__ocContext, parentURL: __ocParent })
+    },
+  })
+  try {
+    return import.meta.resolve(__ocSpecifier)
+  } finally {
+    __ocHook.deregister()
+  }
+}
 const __ocUid = typeof process.getuid === "function" ? process.getuid() : undefined
 const __ocCacheRoot = __ocPath.join(__ocTmpdir(), \`opencode-node-\${__ocUid ?? "user"}\`)
 if (__ocIsSea()) {
