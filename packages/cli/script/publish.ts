@@ -136,10 +136,10 @@ if (Script.channel !== "latest" && existsSync(path.join(root, "node"))) {
   await publishDistribution({
     root: path.join(root, "node"),
     name: "@opencode/cli-node",
-    command: "opencode2-node",
-    binary: "opencode2-node",
+    command: "opencode2",
+    binary: "opencode2",
     packagePrefix: "@opencode/cli-node-",
-    artifact: "cli-node",
+    artifact: "cli",
   })
 }
 

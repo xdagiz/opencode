@@ -4,7 +4,7 @@ import { BackgroundServiceState } from "./background-service-state"
 import { cleanStages } from "./cli-stages"
 import { DesktopCli } from "./desktop-cli"
 import { SidecarCredentials } from "./sidecar-credentials"
-import { sidecarProbe } from "./sidecar-probe"
+import { registrationFile, sidecarProbe } from "./sidecar-probe"
 
 export * as BackgroundService from "./background-service"
 
@@ -31,7 +31,6 @@ export const layer = Layer.effect(
 
 const connect = Effect.fn("BackgroundService.connect")(function* (mode: "initial" | "reconnect") {
   yield* Effect.logInfo("starting v2 background service")
-  const path = yield* Path.Path
   const desktopCli = yield* DesktopCli.Service
   const runFork = Effect.runForkWith(yield* Effect.context<FileSystem.FileSystem | Path.Path>())
   const isolated = !app.isPackaged && process.env.OPENCODE_DESKTOP_ISOLATED_SERVER === "1"
@@ -40,17 +39,13 @@ const connect = Effect.fn("BackgroundService.connect")(function* (mode: "initial
 
   if (isolated) process.env.XDG_STATE_HOME = app.getPath("userData")
   const client = yield* Effect.promise(() => import("@opencode/client/service"))
+  // Read the same registration file the CLI wrote: mirrors cli ServiceConfig.filename().
+  const serverChannel = process.env.OPENCODE_DESKTOP_SERVER_CHANNEL
+  const file = serverChannel === "local" ? registrationFile("local") : registrationFile()
 
   const ensure = () =>
     client.Service.ensure({
-      file:
-        process.env.OPENCODE_DESKTOP_SERVER_CHANNEL === "local"
-          ? path.join(
-              process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state"),
-              "opencode",
-              "service-local.json",
-            )
-          : undefined,
+      file,
       version,
       // A fixed port makes a second contender fail to bind and back off; port 0 never collides, so two
       // services could boot against the same database.
@@ -66,7 +61,7 @@ const connect = Effect.fn("BackgroundService.connect")(function* (mode: "initial
 
   // A compatible service the entry module already found is adopted at once; ensure() still runs
   // afterwards for its side effects (terminal handoff completion), off the renderer's path.
-  const early = mode === "initial" && !isolated ? yield* Effect.promise(sidecarProbe) : undefined
+  const early = mode === "initial" && !isolated ? yield* Effect.promise(() => sidecarProbe(file)) : undefined
 
   if (early) yield* Effect.sync(() => void ensure().catch(() => undefined))
   const service = early ?? (yield* Effect.tryPromise(ensure))

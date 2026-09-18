@@ -14,19 +14,17 @@ jobs:
     name: opencode-desktop (linux-x64)
     runs-on: ubuntu-latest
     env:
-      OPENCODE_CHANNEL: dev
+      OPENCODE_CHANNEL: prod
       OPENCODE_CLI_DIST: ${{ github.workspace }}/packages/cli/dist
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Compute version
-        run: echo "OPENCODE_VERSION=0.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+        run: echo "OPENCODE_VERSION=$(node -p "require('./packages/cli/package.json').version")" >> "$GITHUB_ENV"
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
-        with:
-          bun-version: 1.4.2
 
       - name: Build node binary
         working-directory: packages/cli
@@ -38,7 +36,7 @@ jobs:
 
       - name: Copy built CLI into resources
         run: |
-          cp packages/cli/dist/cli-node-linux-x64/bin/opencode2-node packages/desktop/resources/opencode-cli
+          cp packages/cli/dist/cli-linux-x64/bin/opencode2 packages/desktop/resources/opencode-cli
           chmod +x packages/desktop/resources/opencode-cli
 
       - name: Build
@@ -53,11 +51,11 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: opencode-node-cli-linux-x64
-          path: packages/cli/dist/cli-node-linux-x64
+          path: packages/cli/dist/cli-linux-x64
           if-no-files-found: error
           retention-days: 90
 
-      - name: Upload artifact
+      - name: Upload desktop artifact
         uses: actions/upload-artifact@v4.6.2
         with:
           name: opencode-desktop-linux-x64

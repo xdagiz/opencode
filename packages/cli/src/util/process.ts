@@ -3,6 +3,9 @@ import path from "node:path"
 const entrypoint = process.argv[1] ? path.resolve(process.argv[1]) : undefined
 
 export function selfCommand() {
+  const serverBin = process.env.OPENCODE_SERVER_BIN
+  if (serverBin) return serverBin.split(/\s+/)
+
   const runtime = path.basename(process.execPath, path.extname(process.execPath)).toLowerCase()
   if (runtime !== "bun" && runtime !== "node" && runtime !== "nodejs") return [process.execPath]
   if (!entrypoint) throw new Error("Failed to resolve CLI entrypoint")

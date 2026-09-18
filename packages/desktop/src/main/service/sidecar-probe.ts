@@ -1,5 +1,6 @@
+import { homedir } from "node:os"
 import { readFileSync } from "node:fs"
-import path from "node:path"
+import { join } from "node:path"
 import { app } from "electron"
 import type { Endpoint } from "@opencode/client/service"
 
@@ -10,17 +11,31 @@ import type { Endpoint } from "@opencode/client/service"
 // which set the environment the CLI expects.
 let probe: Promise<Endpoint | undefined> | undefined
 
+// Mirrors cli ServiceConfig.filename() so the desktop reads the same registration file the CLI
+// wrote: `service.json` for latest/dev/beta/next, `service-<channel>.json` otherwise.
+export function registrationFile(channel = import.meta.env.OPENCODE_CHANNEL) {
+  const name =
+    channel === "local"
+      ? "service-local.json"
+      : channel === "latest" || channel === "dev" || channel === "beta" || channel === "next"
+        ? "service.json"
+        : `service-${channel.replace(/[^a-zA-Z0-9._-]/g, "-")}.json`
+  const stateHome = process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state")
+  return join(stateHome, "opencode", name)
+}
+
 export function startSidecarProbe() {
   if (!app.isPackaged) return
   const version = bundledVersion()
+  const file = registrationFile()
 
   if (!version) return
   probe = import("@opencode/client/service")
-    .then(({ Service }) => Service.discover({ version }))
+    .then(({ Service }) => Service.discover({ version, file }))
     .catch(() => undefined)
 }
 
-export function sidecarProbe() {
+export function sidecarProbe(file?: string) {
   return probe ?? Promise.resolve(undefined)
 }
 
