@@ -14,14 +14,14 @@ jobs:
     name: opencode-desktop (linux-x64)
     runs-on: ubuntu-latest
     env:
-      OPENCODE_CHANNEL: dev
+      OPENCODE_CHANNEL: prod
       OPENCODE_CLI_DIST: ${{ github.workspace }}/packages/cli/dist
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Compute version
-        run: echo "OPENCODE_VERSION=0.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+        run: echo "OPENCODE_VERSION=$(node -p "require('./packages/cli/package.json').version")-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
